@@ -1,5 +1,12 @@
 # Laboratorium ED 2018
 
+Linki do danych:
+
+https://www.kaggle.com/neuromusic/avocado-prices/home
+
+https://www.kaggle.com/abhinav89/telecom-customer/version/1
+
+
 ## 1. Czyszczenie i wczytywanie danych
 
 Skrypt wczytujący 'avocado.csv' znajduje się w pliku 'avocado_cleanup.R'.
