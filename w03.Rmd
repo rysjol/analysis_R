@@ -1,0 +1,211 @@
+---
+title: "Wyklad04"
+author: "Lucjan Janowski"
+date: "7 grudnia 2016"
+output: html_document
+runtime: shiny
+---
+
+Na podstawie Edwin de Jonge, Mark van der Loo, "An introduciton to data cleaning with R" rok 2013 oraz strony Pogromcy danych.
+
+Przyklad pierwszy.
+
+```{r}
+install.packages("PogromcyDanych")
+library(PogromcyDanych)
+summary(auta2012)
+hist(auta2012$Przebieg.w.km)
+
+nrow(auta2012)
+
+summary(auta2012$Przebieg.w.km)
+
+przebieg = auta2012$Przebieg.w.km[!is.na(auta2012$Przebieg.w.km)]
+
+hist(log(przebieg))
+
+fplot(przebieg[przebieg>exp(13) & przebieg<4*10^8])
+exp(13)
+
+max(przebieg)
+((max(przebieg)/100)/24)/365
+
+((exp(13)/100)/24)/365
+
+#600000 - na rok, ale takie auta żyją 5-6 lat
+#Ta informacja wymaga interakcji z zewnetrznym swiatem ;)
+```
+
+
+```{r}
+bity = c(2.3, 4.5, 1.2, 2.1, 0.8, 1.2, 1.4, 1.5, 2.8, 2.5, 3.5, 4.5, 21, 1.2, 3.4, 1.4, 2.4, 2.3, 1.4)
+summary(bity)
+plot(bity)
+```
+
+
+
+Specjalne dane, NA, NULL, Inf oraz NaN
+
+```{r}
+NA+1
+sum(c(NA, 3, 5, 6))
+sum(c(NA, 3, 5, 6), na.rm=TRUE)
+length(c(NA, 2, 3, 4))
+3 == NA
+TRUE | NA
+
+NULL+1
+sum(c(NULL, 3, 5, 6))
+length(c(NULL, 2, 3, 4))
+3 == NULL
+TRUE | NULL
+
+Inf+1
+sum(c(Inf, 3, 5, 6))
+length(c(Inf, 2, 3, 4))
+3 == Inf
+Inf == Inf
+TRUE | Inf
+
+0/0
+Inf-Inf
+NaN+1
+sum(c(NaN, 3, 5, 6))
+length(c(NaN, 2, 3, 4))
+3 == NaN
+FALSE | NaN
+TRUE | NaN
+```
+
+Prpszę wczutać plik pomiaryZapylenia.txt oraz doprowadzić do otrzymania poprawnego technicznie zbioru danych.
+
+Implementacja przepisana z: Edwin de Jonge, Mark van der Loo, "An introduciton to data cleaning with R" rok 2013. 
+
+```{r}
+hboutlier <- function(x, r){
+  x <- x[is.finite(x)]
+  stopifnot(
+    length(x) > 0
+    , all(x>0)
+  )
+  xref <- median(x)
+  if (xref <= sqrt(.Machine$double.eps))
+    warning("Reference value close to zero: results may be inaccurate")
+  pmax(x/xref, xref/x) > r
+}
+
+x <- rgamma(1000, 2, 0.01)
+x <- append(x, c(0.4))
+min(x)
+plot(x)
+hist(x)
+hist(x,100)
+x[hboutlier(x,100)]
+x[hboutlier(x,10)]
+sum(x[hboutlier(x,5)]>median(x))
+
+boxplot.stats(x)$out
+boxplot.stats(x, coef = 3)$out
+```
+
+
+Przykład kodu wcczytującego dane z eksperymentu i doprowadzającego do poprawnie technicznych danych.
+
+```{r}
+AGH = read.csv("AGHOriginalData_withComma.csv", sep = ",", header=TRUE, colClasses = c("factor", "numeric", "character", "factor", "character", "character", "factor", "character", "character", "numeric", "numeric", "character", "character"))
+
+#removing not needed columns
+AGH$Camera = NULL
+AGH$Comments = NULL
+AGH$X = NULL
+AGH$LabID = rep("AGH", nrow(AGH))
+#converting data, especially the time data
+Sys.setlocale("LC_TIME", "pl_PL.UTF-8")
+AGH$SessionStartTime <- as.POSIXct(strptime(AGH$SessionStartTime, "%d %h %Y %H:%M:%S"))
+
+#creating one variable
+rawData = rbind(AGH)
+
+list = ls()
+rm(list = list[list != "rawData"])
+
+#converting data, especially the time data
+Sys.setlocale("LC_TIME", "en_GB.UTF-8")
+
+rawData$TaskStartTime <- as.POSIXct(strptime(rawData$TaskStartTime, "%H:%M:%S"))
+rawData$TaskEndTime <- as.POSIXct(strptime(rawData$TaskEndTime, "%H:%M:%S"))
+rawData$LabID <- as.factor(rawData$LabID)
+rawData$UserID[rawData$LabID == "AGH"] <- 1000 + rawData$UserID[rawData$LabID == "AGH"]
+rawData$UserID <- as.factor(rawData$UserID)
+
+#separate mos and pair experiments
+pairRaw = rawData[rawData$StudyType == "Comparison Study", ]
+
+#Only Pair is analyzed untill it is saved, than mosRaw is analyzed
+
+#Correcting some factors
+pairRaw$ScreenSelected <- factor(pairRaw$ScreenSelected, levels = c("Left", "Right"))
+
+#Extracting file name
+pairRaw$ImageName = gsub(".jpg", "", pairRaw$ImageName)
+pairRaw$ImageName = gsub(".JPG", "", pairRaw$ImageName)
+pairRaw$ImageName = gsub("..\\s", "", pairRaw$ImageName)
+pairRaw$ImageName = gsub("Parking_dev", "", pairRaw$ImageName)
+#at this point ImageName is wrong since the folger is left
+
+#extracting information about the folder and the pair
+tmp = strsplit(pairRaw$FolderPath, "\\", fixed = TRUE)
+tmp2 = matrix(unlist(tmp), ncol=5, byrow = TRUE)
+tmpPhoto = as.factor(tmp2[,4])
+#unique names for Photo variable
+levels(tmpPhoto)[levels(tmpPhoto) == "AutumnMtn"] <- "Autumn"
+levels(tmpPhoto)[levels(tmpPhoto) == "Beach Toys"] <- "Beach"
+levels(tmpPhoto)[levels(tmpPhoto) == "Building Corner"] <- "Corner"
+levels(tmpPhoto)[levels(tmpPhoto) == "Evacuation Plan"] <- "Evac"
+levels(tmpPhoto)[levels(tmpPhoto) == "Green Tree"] <- "Green"
+levels(tmpPhoto)[levels(tmpPhoto) == "Mirror Ball"] <- "Mirror"
+levels(tmpPhoto)[levels(tmpPhoto) == "Tree Lake"] <- "Tree"
+pairRaw$PhotoClass <- tmpPhoto
+
+tmpPair = strsplit(tmp2[,5], " ", fixed = TRUE)
+tmpPair2 = matrix(unlist(tmpPair), ncol=2, byrow = TRUE)
+photo1 = as.factor(tmpPair2[,1])
+photo2 = as.factor(tmpPair2[,2])
+pairRaw$Image1 = interaction(pairRaw$PhotoClass, photo1)
+pairRaw$Image2 = interaction(pairRaw$PhotoClass, photo2)
+pairRaw$ImageSelected = interaction(pairRaw$PhotoClass, as.factor(pairRaw$ImageName))
+
+#to uniform the forctors, the pool of images 
+pairRaw$Image1 <- factor(pairRaw$Image1, levels = unique(c(levels(pairRaw$Image1), levels(pairRaw$Image2), levels(pairRaw$ImageSelected))))
+pairRaw$Image2 <- factor(pairRaw$Image2, levels = unique(c(levels(pairRaw$Image1), levels(pairRaw$Image2), levels(pairRaw$ImageSelected))))
+pairRaw$ImageSelected <- factor(pairRaw$ImageSelected, unique(c(levels(pairRaw$Image1), levels(pairRaw$Image2), levels(pairRaw$ImageSelected))))
+
+#correcting AGH data
+ind1 = pairRaw$LabID == "AGH" & pairRaw$ImageSelected == pairRaw$Image1
+ind2 = pairRaw$LabID == "AGH" & pairRaw$ImageSelected == pairRaw$Image2
+pairRaw$ImageSelected[ind1] = pairRaw$Image2[ind1]
+pairRaw$ImageSelected[ind2] = pairRaw$Image1[ind2]
+#ind1 = pairRaw$LabID == "AGH" & pairRaw$ScreenSelected == "Left"
+#ind2 = pairRaw$LabID == "AGH" & pairRaw$ScreenSelected == "Right"
+#pairRaw$ImageSelected[ind1] = "Right"
+#pairRaw$ImageSelected[ind2] = "Left"
+
+#Image name per side
+pairRaw$LeftImage = pairRaw$Image1
+pairRaw$RightImage = pairRaw$Image2
+
+ind = pairRaw$ScreenSelected == "Left" & pairRaw$Image1 == pairRaw$ImageSelected
+pairRaw$LeftImage[ind] = pairRaw$Image1[ind]
+pairRaw$RightImage[ind] = pairRaw$Image2[ind]
+ind = pairRaw$ScreenSelected == "Left" & pairRaw$Image2 == pairRaw$ImageSelected
+pairRaw$LeftImage[ind] = pairRaw$Image2[ind]
+pairRaw$RightImage[ind] = pairRaw$Image1[ind]
+ind = pairRaw$ScreenSelected == "Right" & pairRaw$Image1 == pairRaw$ImageSelected
+pairRaw$LeftImage[ind] = pairRaw$Image2[ind]
+pairRaw$RightImage[ind] = pairRaw$Image1[ind]
+ind = pairRaw$ScreenSelected == "Right" & pairRaw$Image2 == pairRaw$ImageSelected
+pairRaw$LeftImage[ind] = pairRaw$Image1[ind]
+pairRaw$RightImage[ind] = pairRaw$Image2[ind]
+```
+
