@@ -6,6 +6,7 @@ https://www.kaggle.com/neuromusic/avocado-prices/home
 
 https://www.kaggle.com/abhinav89/telecom-customer/version/1
 
+# Pliki zawierające kod znajdują się w katalogu `marcin_rys/`
 
 ## 1. Czyszczenie i wczytywanie danych
 
